@@ -1,0 +1,850 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Lecture Swan-Ganz</title>
+<meta name="description" content="Simulateur pédagogique de lecture des courbes de Swan-Ganz : montée de la sonde, diagnostic différentiel, PAPO, thermodilution, calculs hémodynamiques.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 rx=%276%27 fill=%27%238A2B22%27/%3E%3Cpath d=%27M3 20 L9 20 L11 8 L14 26 L17 14 L20 20 L29 20%27 fill=%27none%27 stroke=%27white%27 stroke-width=%272.5%27 stroke-linejoin=%27round%27/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&family=Source+Sans+3:wght@400;600;700&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+/* Mise en page : poste de lecture. Onglets par compétence ; le moniteur reste sombre comme au lit du patient, le reste suit le thème. */
+:root{
+  --bg:#FAF8F8; --surface:#FFFFFF; --sunk:#F1ECEB; --line:#DED6D4;
+  --ink:#1F1A19; --ink2:#5A4F4D; --accent:#8A2B22; --accent-soft:#F4E4E1;
+  --ok:#2F6B3A; --bad:#A2421B; --warn-bg:#FFF4DC; --warn:#7A5300;
+  --mon:#141010; --mon-grid:#3A3231; --mon-text:#BFB6B4; --ra:#4FB3D9; --pa:#E9B949; --paw:#9FD38A; --resp:#C9C1BF; --good:#7CC48A;
+  --f-display:"Source Serif 4", Cambria, Georgia, serif;
+  --f-body:"Source Sans 3", Calibri, "Segoe UI", system-ui, sans-serif;
+  --f-mono:"JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#161212; --surface:#1F1A19; --sunk:#2A2322; --line:#3A3231;
+  --ink:#F1ECEB; --ink2:#BFB6B4; --accent:#E07A6E; --accent-soft:#3A2220;
+  --ok:#7CC48A; --bad:#F0956C; --warn-bg:#3A2F16; --warn:#F1C66B; --mon:#0B0808; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#161212; --surface:#1F1A19; --sunk:#2A2322; --line:#3A3231;
+  --ink:#F1ECEB; --ink2:#BFB6B4; --accent:#E07A6E; --accent-soft:#3A2220;
+  --ok:#7CC48A; --bad:#F0956C; --warn-bg:#3A2F16; --warn:#F1C66B; --mon:#0B0808; color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 40px}
+.wrap{max-width:1120px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px;border-bottom:2px solid var(--accent);padding-bottom:12px}
+h1{font-family:var(--f-display);font-size:clamp(26px,4vw,34px);margin:0;line-height:1.1;text-wrap:balance}
+.sub{color:var(--ink2);margin:4px 0 0;font-size:15px}
+.tabs{display:flex;gap:4px;flex-wrap:wrap}
+.tab{font:600 14px var(--f-body);padding:8px 12px;border:1px solid var(--line);background:var(--surface);color:var(--ink2);border-radius:6px;cursor:pointer}
+.tab[aria-selected="true"]{background:var(--accent);border-color:var(--accent);color:var(--surface)}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.grid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:18px;align-items:start}
+@media (max-width:860px){.grid{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:18px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.eyebrow{font:700 12px var(--f-body);letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin:0}
+h2{font-family:var(--f-display);font-size:21px;margin:0;line-height:1.2;text-wrap:balance}
+h3{font:700 15px var(--f-body);margin:0}
+p{margin:0}
+ul{margin:0;padding-left:20px}
+.muted{color:var(--ink2);font-size:14px}
+/* moniteur */
+.monitor{background:var(--mon);border-radius:8px;padding:10px;display:flex;flex-direction:column;gap:8px}
+.monitor canvas{width:100%;display:block;border-radius:4px}
+.readout{display:flex;justify-content:space-between;align-items:flex-end;gap:10px;flex-wrap:wrap;color:var(--mon-text);font-family:var(--f-mono)}
+.readout .ch{font:700 15px var(--f-mono);letter-spacing:.04em}
+.readout .num{font:700 30px var(--f-mono);font-variant-numeric:tabular-nums;line-height:1}
+.readout .num small{font-size:14px;color:var(--mon-text)}
+.readout .depth{font-size:14px}
+.btns{display:flex;gap:8px;flex-wrap:wrap}
+button.main{font:700 15px var(--f-body);padding:9px 14px;border-radius:6px;border:1px solid var(--accent);background:var(--accent);color:var(--surface);cursor:pointer}
+button.ghost{font:600 15px var(--f-body);padding:9px 14px;border-radius:6px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer}
+button.ghost[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+button:disabled{opacity:.5;cursor:default}
+select{font:600 15px var(--f-body);padding:8px 10px;border-radius:6px;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
+.field{display:flex;flex-direction:column;gap:4px;font-size:14px;font-weight:600}
+.alert{border-radius:6px;padding:10px 12px;font-size:14px;background:var(--warn-bg);color:var(--warn)}
+.log{display:flex;flex-direction:column;gap:6px}
+.depthbar{position:relative;height:30px;background:var(--sunk);border-radius:6px;overflow:hidden}
+.depthbar .seg{position:absolute;top:0;bottom:0;display:flex;align-items:center;justify-content:center;font:700 11px var(--f-body);color:var(--ink2);border-right:1px solid var(--line)}
+.depthbar .tip{position:absolute;top:0;bottom:0;width:3px;background:var(--accent);transition:left .3s}
+.answers{display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:6px}
+.fb{font-weight:700}
+.fb.ok{color:var(--ok)} .fb.ko{color:var(--bad)}
+/* schéma de position */
+/* planche anatomique : palette fixe, comme une illustration de manuel */
+.schema{background:#F7F1EC;border-radius:8px;padding:0;position:relative;overflow:hidden}
+.schema svg{width:100%;height:auto;display:block;max-height:420px}
+.schema .cache{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:16px;background:#F7F1EC;color:#5A4F4D;font-size:14px}
+.t-ven path,.t-art path{fill:none;stroke-linecap:round;stroke-linejoin:round}
+.t-ven path{stroke:#6E8CC4;stroke-width:var(--w,20px);filter:drop-shadow(0 0 0 #34558F)}
+.t-art path{stroke:#C9473F;stroke-width:var(--w,14px)}
+.t-ven{filter:drop-shadow(0 0 1.2px #2F4E86)} .t-art{filter:drop-shadow(0 0 1.2px #7E211B)}
+.ch-ven{fill:url(#g-ven);stroke:#A9564F;stroke-width:5;stroke-linejoin:round}
+.ch-ven.rv{stroke-width:6}
+.ch-art{fill:url(#g-art);stroke:#A34A43;stroke-width:5;stroke-linejoin:round}
+.ch-art.lv{stroke-width:15}
+.valve path{fill:none;stroke:#F3E7CF;stroke-width:3.5;stroke-linecap:round;filter:drop-shadow(0 0 .8px #6B5A3A)}
+.chordae path{stroke:#F3E7CF;stroke-width:.9;opacity:.9}
+.trab path{fill:none;stroke:#5F7FB8;stroke-width:1.4;opacity:.55}
+.sv-hlc{fill:#FFD23F;fill-opacity:0;stroke:#E8A400;stroke-width:0;pointer-events:none;transition:fill-opacity .25s}
+.sv-hlc.on{fill-opacity:0;stroke-width:3.5;stroke:#FFB000;filter:drop-shadow(0 0 3px #FFC53D)}
+.sv-hlt{fill:none;stroke:#FFC21A;stroke-opacity:0;stroke-linecap:round;transition:stroke-opacity .25s}
+.sv-hlt.on{stroke-opacity:.6}
+.pl{font:700 12.5px var(--f-body);fill:#2A2422}
+.pl.s{font-weight:600;font-size:11.5px;fill:#4A3F3C}
+.pl.on{fill:#8A2B22;font-size:14px}
+.lead path{stroke:#6B5D59;stroke-width:.8;fill:none}
+.cat-o{fill:none;stroke:#3A2E12;stroke-width:4.6;stroke-linecap:round;stroke-linejoin:round}
+.cat-c{fill:none;stroke:#F2C14E;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
+.sv-tip{fill:#3A2E12;stroke:#F2C14E;stroke-width:1.5}
+.sv-bal{fill:#F6E7C8;fill-opacity:.75;stroke:#8A6D2E;stroke-width:1.3}
+.mini{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.mt{background:var(--mon);border-radius:6px;padding:4px 4px 2px;border:2px solid transparent;text-align:center}
+.mt svg{width:100%;height:auto;display:block}
+.mt path{fill:none;stroke-width:1.6}
+.mt .mt-ra{stroke:var(--ra)} .mt .mt-pa{stroke:var(--pa)}
+.mt span{font:700 11px var(--f-mono);color:var(--mon-text)}
+.mt.on{border-color:var(--accent)}
+.legend{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:13px;color:var(--ink2)}
+.legend b{color:var(--accent)}
+/* PAPO */
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font:600 14px var(--f-mono);min-width:40px;padding:6px 10px;border-radius:6px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer}
+.chip[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+.chip.done::after{content:" ✓";color:var(--ok)}
+.cursor{display:flex;flex-direction:column;gap:4px}
+.cursor label{display:flex;justify-content:space-between;font-weight:600;font-size:14px}
+.cursor output{font:700 16px var(--f-mono);color:var(--accent)}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.note{background:var(--sunk);border-radius:6px;padding:10px 12px;font-size:14px}
+/* calculs */
+.data{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:6px}
+.datum{background:var(--sunk);border-radius:6px;padding:6px 10px}
+.datum span{display:block;font-size:12px;color:var(--ink2)}
+.datum b{font:700 16px var(--f-mono);font-variant-numeric:tabular-nums}
+.calc{display:grid;grid-template-columns:minmax(0,1.3fr) 110px minmax(0,1fr);gap:8px 10px;align-items:center}
+.calc .lab{font-weight:600;font-size:14px}
+.calc .lab small{display:block;font-weight:400;color:var(--ink2)}
+.calc input{font:700 15px var(--f-mono);width:100%;padding:7px 8px;border-radius:6px;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
+.calc .res{font-size:13px;font-family:var(--f-mono)}
+.calc .res.ok{color:var(--ok)} .calc .res.ko{color:var(--bad)}
+@media (max-width:520px){.calc{grid-template-columns:minmax(0,1fr) 96px}.calc .res{grid-column:1 / 3}}
+.opts{display:flex;flex-direction:column;gap:6px}
+.opt{display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border:1px solid var(--line);border-radius:6px;cursor:pointer}
+.opt input{margin-top:4px;accent-color:var(--accent)}
+.opt.good{border-color:var(--ok)} .opt.bad{border-color:var(--bad)}
+.tablewrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:420px;font-size:14px}
+th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink2)}
+td.mono{font-family:var(--f-mono);font-weight:700}
+footer{font-size:12px;color:var(--ink2);border-top:1px solid var(--line);padding-top:10px}
+@media (prefers-reduced-motion:reduce){.depthbar .tip{transition:none}}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+<header>
+  <div>
+    <h1>Lecture Swan-Ganz</h1>
+    <p class="sub">Cathétérisme artériel pulmonaire (sonde BD) · atelier pour les internes de chirurgie cardiaque</p>
+  </div>
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" id="t-montee" aria-selected="true" data-view="montee">Montée</button>
+    <button class="tab" role="tab" id="t-diag" aria-selected="false" data-view="diag">Quel profil ?</button>
+    <button class="tab" role="tab" id="t-papo" aria-selected="false" data-view="papo">Lire la PAPO</button>
+    <button class="tab" role="tab" id="t-td" aria-selected="false" data-view="td">Thermodilution</button>
+    <button class="tab" role="tab" id="t-calc" aria-selected="false" data-view="calc">Calculs</button>
+  </div>
+</header>
+
+<!-- MONTEE -->
+<section id="v-montee" class="grid">
+  <div class="panel">
+    <p class="eyebrow">Moniteur · voie distale</p>
+    <div class="monitor">
+      <canvas id="mon" width="900" height="300" aria-label="Courbe de pression de la voie distale"></canvas>
+      <div class="readout">
+        <div><div class="ch" id="m-ch">OD</div><div class="depth" id="m-depth">15 cm</div></div>
+        <div class="num" id="m-num">–</div>
+      </div>
+    </div>
+    <div class="depthbar" aria-hidden="true" id="dbar"></div>
+    <div class="btns">
+      <button class="main" id="b-adv">Avancer de 5 cm</button>
+      <button class="ghost" id="b-back">Reculer de 5 cm</button>
+      <button class="ghost" id="b-bal" aria-pressed="false">Gonfler le ballonnet</button>
+    </div>
+  </div>
+  <div class="panel">
+    <p class="eyebrow">Où est la sonde ?</p>
+    <div class="schema">
+      <svg id="sv" viewBox="0 0 400 404" role="img" aria-label="Planche anatomique du cœur, vue de face : trajet de la sonde de la veine cave supérieure jusqu'à l'artère pulmonaire droite">
+        <defs>
+          <radialGradient id="g-ven" cx=".4" cy=".35" r=".8"><stop offset="0" stop-color="#B9CBEA"/><stop offset="1" stop-color="#7F9BCB"/></radialGradient>
+          <radialGradient id="g-art" cx=".45" cy=".35" r=".8"><stop offset="0" stop-color="#EBA49C"/><stop offset="1" stop-color="#C8665D"/></radialGradient>
+        </defs>
+        <rect x="0" y="0" width="400" height="404" rx="8" fill="#F7F1EC"/>
+        <!-- plan postérieur : OG et veines pulmonaires -->
+        <g class="t-art"><path d="M356,152 L394,140"/><path d="M358,182 L396,192"/></g>
+        <path class="ch-art" d="M268,150 C290,132 340,132 356,150 C366,168 352,190 330,196 L284,196 C268,190 258,166 268,150 Z"/>
+        <!-- AP droite, en arrière de l'aorte et de la VCS -->
+        <path id="h-APD" class="sv-hlt" style="stroke-width:28" d="M272,118 C240,112 150,110 100,114 C80,116 62,128 48,152"/>
+        <g class="t-ven" style="--w:18px"><path d="M272,118 C240,112 150,110 100,114 C80,116 62,128 48,152"/></g>
+        <g id="cat-b"></g>
+        <!-- aorte et troncs supra-aortiques -->
+        <g class="t-art" style="--w:11px"><path d="M240,58 L232,10"/><path d="M262,51 L262,6"/><path d="M286,53 L296,8"/></g>
+        <g class="t-art" style="--w:30px"><path d="M226,214 C224,170 222,124 222,96 C222,64 250,50 284,51 C318,52 334,72 334,100 L334,190"/></g>
+        <!-- veines caves -->
+        <path id="h-VCS" class="sv-hlt" style="stroke-width:40" d="M154,0 L154,160"/>
+        <g class="t-ven" style="--w:30px"><path d="M154,0 L154,162"/><path d="M86,400 L86,284"/></g>
+        <!-- VG (paroi épaisse) puis VD -->
+        <path class="ch-art lv" d="M232,232 C262,214 312,204 342,214 C372,250 372,320 336,366 C318,388 292,392 280,382 C262,340 244,282 232,232 Z"/>
+        <g class="valve"><path d="M292,198 C292,212 298,222 304,232"/><path d="M334,200 C334,214 330,224 324,234"/></g>
+        <path id="c-VD" class="ch-ven rv" d="M106,290 C102,334 150,386 254,390 C270,390 280,384 279,378 C268,350 258,316 252,290 C250,262 262,236 280,214 L246,214 C232,236 206,262 180,290 Z"/>
+        <g class="trab"><path d="M170,372 C190,360 214,368 232,378"/><path d="M200,382 C214,372 236,374 250,384"/><path d="M128,344 C140,350 150,352 162,350"/></g>
+        <ellipse cx="146" cy="364" rx="9" ry="6" fill="#A9564F"/>
+        <g class="chordae"><path d="M128,322 L144,360"/><path d="M160,324 L148,360"/><path d="M140,326 L146,358"/></g>
+        <g class="valve"><path d="M108,290 C114,304 122,316 128,322"/><path d="M178,290 C172,304 166,316 160,324"/></g>
+        <!-- OD et auricule droite -->
+        <path id="c-OD" class="ch-ven" d="M106,290 C76,280 62,240 68,206 C74,176 100,158 140,158 L168,158 C190,160 208,170 214,186 C222,206 214,236 196,260 C190,272 184,282 180,290 Z"/>
+        <path class="ch-ven" d="M198,172 C212,150 238,150 242,166 C234,178 222,188 210,192 Z"/>
+        <!-- tronc et AP gauche (en avant) -->
+        <path id="h-AP" class="sv-hlt" style="stroke-width:40" d="M262,214 C266,180 272,150 278,116"/>
+        <g class="t-ven" style="--w:30px"><path d="M262,216 C266,180 272,150 278,116"/></g>
+        <g class="t-ven" style="--w:18px"><path d="M280,114 C306,104 340,104 372,116"/></g>
+        <g class="valve"><path d="M246,214 Q254,202 263,214 Q271,202 280,214"/></g>
+        <!-- surlignage des cavités -->
+        <path id="h-OD" class="sv-hlc" d="M106,290 C76,280 62,240 68,206 C74,176 100,158 140,158 L168,158 C190,160 208,170 214,186 C222,206 214,236 196,260 C190,272 184,282 180,290 Z"/>
+        <path id="h-VD" class="sv-hlc" d="M106,290 C102,334 150,386 254,390 C270,390 280,384 279,378 C268,350 258,316 252,290 C250,262 262,236 280,214 L246,214 C232,236 206,262 180,290 Z"/>
+        <!-- légendes -->
+        <g class="lead"><path d="M110,36 L138,36"/><path d="M60,326 L116,308"/><path d="M296,226 L272,214"/></g>
+        <text id="l-VCS" class="pl" x="106" y="40" text-anchor="end">VCS</text>
+        <text id="l-OD" class="pl" x="104" y="216">OD</text>
+        <text id="l-VD" class="pl" x="206" y="380">VD</text>
+        <text id="l-AP" class="pl" x="290" y="128">AP</text>
+        <text id="l-PAPO" class="pl" x="6" y="176">AP droite</text>
+        <text class="pl s" x="352" y="96">Aorte</text>
+        <text class="pl s" x="304" y="172">OG</text>
+        <text class="pl s" x="312" y="300">VG</text>
+        <text class="pl s" x="104" y="392">VCI</text>
+        <text class="pl s" x="4" y="330">Tricuspide</text>
+        <text class="pl s" x="298" y="232">Pulmonaire</text>
+        <g id="cat-f"></g>
+        <ellipse id="bal" class="sv-bal" rx="8" ry="6" style="display:none"/>
+        <circle id="tip" class="sv-tip" r="4.5"/>
+      </svg>
+      <div class="cache" id="sv-cache" hidden>Schéma masqué en mode quiz.<br>Il s'affiche après votre réponse.</div>
+    </div>
+    <div class="mini" id="mini" aria-label="Courbe attendue à chaque station"></div>
+    <div class="legend"><span id="sv-pos">Extrémité : <b>OD</b></span><span id="sv-mv"></span></div>
+    <p class="eyebrow">Réglages</p>
+    <label class="field" for="prof">Profil du patient
+      <select id="prof">
+        <option value="normal">Hémodynamique normale</option>
+        <option value="postcap">Insuffisance VG, HTP post-capillaire</option>
+        <option value="precap">HTP pré-capillaire</option>
+        <option value="im">Insuffisance mitrale aiguë</option>
+        <option value="ivd">Insuffisance ventriculaire droite</option>
+        <option value="constr">Péricardite constrictive</option>
+        <option value="restr">Cardiomyopathie restrictive</option>
+        <option value="tamp">Tamponnade</option>
+        <option value="hypo">Hypovolémie</option>
+        <option value="it">Insuffisance tricuspide sévère</option>
+        <option value="rm">Rétrécissement mitral</option>
+        <option value="ep">Embolie pulmonaire massive</option>
+        <option value="west">PAPO en zone 1–2 de West</option>
+      </select>
+    </label>
+    <p class="note" id="prof-note"></p>
+    <button class="ghost" id="b-quiz" aria-pressed="false">Mode quiz : masquer la cavité</button>
+    <div id="quiz" hidden>
+      <h3>Où est l'extrémité de la sonde ?</h3>
+      <div class="answers" id="q-ans"></div>
+      <p class="fb" id="q-fb"></p>
+    </div>
+    <div class="log" id="alerts"></div>
+    <h3>Repères de profondeur (jugulaire interne droite)</h3>
+    <ul class="muted">
+      <li>Oreillette droite : 20–25 cm</li>
+      <li>Ventricule droit : 30–35 cm</li>
+      <li>Artère pulmonaire : 40–45 cm</li>
+      <li>Position bloquée : 45–55 cm</li>
+    </ul>
+    <p class="muted">Ajouter environ 10 cm par voie sous-clavière gauche ou fémorale. Une progression de plus de 10–15 cm sans changement de courbe fait suspecter une boucle.</p>
+  </div>
+</section>
+
+<!-- QUEL PROFIL ? -->
+<section id="v-diag" class="grid" hidden>
+  <div class="panel">
+    <p class="eyebrow">Moniteur · patient inconnu</p>
+    <div class="monitor">
+      <canvas id="dcv" width="900" height="300" aria-label="Courbe de pression du patient inconnu"></canvas>
+      <div class="readout"><div class="ch" id="d-ch">OD</div><div class="num" id="d-num">–</div></div>
+    </div>
+    <div class="answers" id="d-cav" role="group" aria-label="Cavité affichée"></div>
+    <div class="data">
+      <div class="datum"><span>OD (moy.)</span><b id="dv-OD">–</b></div>
+      <div class="datum"><span>VD (syst./télédiast.)</span><b id="dv-VD">–</b></div>
+      <div class="datum"><span>AP (syst./diast., moy.)</span><b id="dv-AP">–</b></div>
+      <div class="datum"><span>PAPO (moy.)</span><b id="dv-PAPO">–</b></div>
+    </div>
+    <p class="muted">Regardez chaque cavité : la morphologie compte autant que les chiffres. Valeurs en mmHg, en fin d'expiration.</p>
+  </div>
+  <div class="panel">
+    <p class="eyebrow">Diagnostic différentiel</p>
+    <label class="field" for="d-grp">Série
+      <select id="d-grp"></select>
+    </label>
+    <p class="muted" id="d-grp-q"></p>
+    <h3>Quel profil ?</h3>
+    <div class="opts" id="d-ans"></div>
+    <div id="d-fb"></div>
+    <div class="btns"><button class="main" id="d-next">Patient suivant</button></div>
+    <p class="muted" id="d-score">Score : 0 / 0</p>
+  </div>
+</section>
+
+<!-- PAPO -->
+<section id="v-papo" class="grid" hidden>
+  <div class="panel">
+    <p class="eyebrow">Tracé enregistré · 12 s</p>
+    <div class="chips" id="p-chips"></div>
+    <h2 id="p-title"></h2>
+    <p id="p-story"></p>
+    <div class="monitor"><canvas id="pcv" width="900" height="380" aria-label="Tracé de PAPO avec la respiration"></canvas></div>
+    <div class="cursor">
+      <label for="p-cur">Votre lecture de la PAPO <output id="p-out"></output></label>
+      <input type="range" id="p-cur" min="0" max="50" step="1" value="25">
+    </div>
+    <div class="btns">
+      <button class="main" id="p-ok">Valider cette valeur</button>
+      <button class="ghost" id="p-inv">Tracé non interprétable</button>
+      <button class="ghost" id="p-next">Tracé suivant</button>
+    </div>
+  </div>
+  <div class="panel">
+    <p class="eyebrow">Correction</p>
+    <div id="p-fb"><p class="muted">Placez le curseur sur la valeur que vous liriez, puis validez. La correction s'affiche ici et sur le tracé.</p></div>
+    <h3>Les quatre conditions d'une PAPO valide</h3>
+    <ul class="muted">
+      <li>Courbe auriculaire (ondes a et v) qui réapparaît à chaque gonflage.</li>
+      <li>PAPO inférieure ou égale à la PAP diastolique.</li>
+      <li>Lecture en fin d'expiration, sur la moyenne de l'onde a.</li>
+      <li>Ballonnet gonflé moins de 15 s, puis dégonflé passivement.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- THERMODILUTION -->
+<section id="v-td" class="grid" hidden>
+  <div class="panel">
+    <p class="eyebrow">Courbe de thermodilution</p>
+    <div class="monitor"><canvas id="tcv" width="900" height="320" aria-label="Courbe de thermodilution"></canvas>
+      <div class="readout"><div class="ch">DC mesuré</div><div class="num" id="t-num">–</div></div>
+    </div>
+    <div class="cursor">
+      <label for="t-dc">Débit cardiaque réel <output id="t-dco"></output></label>
+      <input type="range" id="t-dc" min="1.5" max="9" step="0.1" value="5">
+    </div>
+    <label class="field" for="t-sc">Situation
+      <select id="t-sc">
+        <option value="ok">Mesure correcte</option>
+        <option value="vol">Volume injecté plus faible que programmé</option>
+        <option value="warm">Injectat réchauffé dans la main</option>
+        <option value="it">Insuffisance tricuspide importante</option>
+        <option value="slow">Injection lente et irrégulière</option>
+      </select>
+    </label>
+    <p class="muted" id="t-expl"></p>
+  </div>
+  <div class="panel">
+    <p class="eyebrow">Principe</p>
+    <p><b>Stewart-Hamilton :</b> le débit est inversement proportionnel à l'aire sous la courbe. Petite aire, grand débit ; grande aire, petit débit.</p>
+    <div class="note" style="font-family:var(--f-mono)">DC = V × (T<sub>sang</sub> − T<sub>injectat</sub>) × K / ∫ΔT·dt</div>
+    <h3>Quiz : quelle courbe a le débit le plus bas ?</h3>
+    <div class="monitor"><canvas id="qcv" width="600" height="220" aria-label="Trois courbes à comparer"></canvas></div>
+    <div class="answers" id="tq-ans"></div>
+    <p class="fb" id="tq-fb"></p>
+    <h3>Bonnes pratiques</h3>
+    <ul class="muted">
+      <li>Trois injections rapides (moins de 4 s), régulières, en fin d'expiration ; écarter les valeurs à plus de 10 % de la moyenne.</li>
+      <li>Le débit continu de la sonde (filament thermique) est une moyenne glissante sur plusieurs minutes : il réagit avec retard à un changement brutal.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- CALCULS -->
+<section id="v-calc" class="grid" hidden>
+  <div class="panel">
+    <p class="eyebrow">Patient</p>
+    <h2 id="c-title">Patient 1</h2>
+    <div class="data" id="c-data"></div>
+    <div class="calc" id="c-calc"></div>
+    <div class="btns"><button class="main" id="c-check">Vérifier</button><button class="ghost" id="c-new">Nouveau patient</button></div>
+    <h3>Quel profil ?</h3>
+    <div class="opts" id="c-prof"></div>
+    <p class="fb" id="c-fb"></p>
+  </div>
+  <div class="panel">
+    <p class="eyebrow">Formules</p>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Paramètre</th><th>Formule</th><th>Normale</th></tr></thead>
+      <tbody>
+        <tr><td>IC</td><td class="mono">DC / SC</td><td>2,5–4 L/min/m²</td></tr>
+        <tr><td>RVS</td><td class="mono">80 × (PAM − PVC) / DC</td><td>800–1 200 dyn·s·cm⁻⁵</td></tr>
+        <tr><td>GTP</td><td class="mono">PAPm − PAPO</td><td>&lt; 12 mmHg</td></tr>
+        <tr><td>RVP</td><td class="mono">(PAPm − PAPO) / DC</td><td>≤ 2 UW (ESC/ERS 2022)</td></tr>
+        <tr><td>GDP</td><td class="mono">PAPd − PAPO</td><td>&lt; 7 mmHg</td></tr>
+        <tr><td>PVC / PAPO</td><td class="mono">PVC / PAPO</td><td>&gt; 0,63 : défaillance VD</td></tr>
+        <tr><td>PAPi</td><td class="mono">(PAPs − PAPd) / PVC</td><td>&lt; 0,9 (IDM VD) ; &lt; 1,85 (LVAD)</td></tr>
+      </tbody>
+    </table></div>
+    <p class="muted">HTP : PAPm &gt; 20 mmHg. Pré-capillaire si PAPO ≤ 15 et RVP &gt; 2 UW ; post-capillaire si PAPO &gt; 15 (Humbert, Eur Heart J 2022).</p>
+  </div>
+</section>
+
+<footer>Outil de formation. Courbes et valeurs générées par un modèle pédagogique : elles reproduisent la morphologie et les pièges de lecture, pas un patient réel. Repères de profondeur indicatifs.</footer>
+</div>
+
+<script>
+(function(){
+const $=id=>document.getElementById(id);
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const fmt=(v,d=0)=>v.toFixed(d).replace(".",",");
+const G=(x,c,w)=>Math.exp(-(((x-c)/w)**2));
+
+// ---------- morphologies ----------
+function atrial(ph,B,amp,v,x=1,y=1){ // B : niveau de l'onde a / x ; v : amplitude relative de l'onde v ; x, y : profondeur des descentes x et y
+  return B + amp*(G(ph,.06,.05) + .35*G(ph,.18,.03) - .55*x*G(ph,.32,.07) + v*G(ph,.56,.07) - .55*y*G(ph,.72,.07*(y>1.4?.7:1)));
+}
+function rv(ph,sys,edp,dip,fl=0){ // fl : pression minimale protodiastolique (tamponnade : pas de dip)
+  if(ph<.12) return edp + 1.5*G(ph,.06,.04);
+  if(ph<.5)  return edp + (sys-edp)*Math.pow(Math.sin(Math.PI*(ph-.12)/.38),.8) - (ph>.4? (edp-fl)*(ph-.4)/.1 : 0);
+  if(dip) return ph<.53 ? Math.max(1,edp*.12) : edp*(1-.88*Math.exp(-(ph-.53)/.018)); // « dip-plateau » (signe de la racine carrée)
+  return fl + (edp-fl)*(1-Math.exp(-(ph-.5)/.08));
+}
+function pa(ph,sys,dia){
+  const u = ph<.14 ? ph+1 : ph, notch = dia + .55*(sys-dia);
+  if(u<.28) return dia + (sys-dia)*Math.sin((u-.14)/.14*Math.PI/2);
+  if(u<.45) return sys - (sys-notch)*Math.pow((u-.28)/.17,1.3);
+  return dia + (notch-dia)*Math.pow(1-(u-.45)/.69,1.5) + 1.5*G(u,.48,.02);
+}
+const PROF = {
+  normal: {hr:80, ra:6,  rvs:26, rvd:6,  pas:26, pad:11, papo:9,  v:.8, max:40},
+  postcap:{hr:95, ra:11, rvs:48, rvd:11, pas:48, pad:27, papo:24, v:1, max:60},
+  precap: {hr:90, ra:13, rvs:72, rvd:13, pas:72, pad:32, papo:9,  v:.8, max:80},
+  im:     {hr:100,ra:9,  rvs:44, rvd:9,  pas:44, pad:24, papo:20, v:5.5, max:60},
+  constr: {hr:100,ra:17, ar:5, rvs:36, rvd:17, pas:36, pad:19, papo:18, v:.8, xr:1.6, yr:2.4, xp:1.3, yp:2, dip:1, max:50},
+  restr:  {hr:95, ra:13, ar:4, rvs:52, rvd:13, pas:52, pad:27, papo:25, v:1.2, xr:1.2, yr:2, xp:1.1, yp:1.8, dip:1, max:60},
+  ivd:    {hr:105,ra:16, ar:3.5, rvs:30, rvd:15, pas:30, pad:17, papo:11, v:.8, vr:3, xr:.5, yr:1.4, dip:1, max:40},
+  tamp:   {hr:120,ra:18, ar:3, rvs:32, rvd:18, fl:15, pas:32, pad:19, papo:18, v:.6, xr:1.6, yr:.05, xp:1.3, yp:.1, max:50},
+  hypo:   {hr:115,ra:2,  ar:1.5, rvs:20, rvd:2, pas:20, pad:7, papo:5, v:.6, max:30},
+  it:     {hr:90, ra:14, ar:3, vr:4.5, xr:.05, yr:1.8, rvs:40, rvd:14, pas:40, pad:18, papo:12, v:.8, max:50},
+  rm:     {hr:85, ra:9,  rvs:56, rvd:9, pas:56, pad:28, papo:26, ap:4.5, v:.9, yp:.4, max:70},
+  ep:     {hr:120,ra:14, ar:3, vr:1.6, rvs:48, rvd:12, pas:48, pad:24, papo:8, v:.8, max:60},
+  west:   {hr:85, ra:5,  rvs:28, rvd:5, pas:28, pad:13, papo:17, ap:.8, v:.5, rp:3.5, max:40}
+};
+const NOTES = {
+  normal:"Repères : OD 2–8 mmHg, VD 15–30 / 2–8, AP 15–30 / 8–15, PAPO 6–12. La PAPO est inférieure à la PAP diastolique.",
+  postcap:"HTP post-capillaire : PAPm ≥ 20 avec PAPO > 15. Le gradient PAPd − PAPO reste faible (< 7 mmHg).",
+  precap:"HTP pré-capillaire : PAPO normale, mais PAPd − PAPO > 7 mmHg et RVP élevées. VD de pression, systolique élevée.",
+  im:"Insuffisance mitrale aiguë : onde v géante sur la PAPO, qui peut contaminer la courbe d'AP. Lire la PAPO avant l'onde v (en fin de diastole).",
+  constr:"Constriction : pressions diastoliques égalisées (OD ≈ VDtd ≈ PAPd ≈ PAPO, écart < 5 mmHg), OD en « M » ou « W » (descentes x et y profondes), VD en dip-plateau, VDtd > 1/3 de la systolique VD, systolique VD peu élevée (< 50). En ventilation spontanée : signe de Kussmaul et discordance respiratoire VD/VG (non simulés ici).",
+  restr:"Restriction : dip-plateau et descente y profonde comme la constriction, MAIS PAPO > OD de plus de 5 mmHg, systolique VD souvent > 50 mmHg et VDtd < 1/3 de la systolique VD. Le diagnostic différentiel avec la constriction repose sur l'écho, l'IRM et parfois le cathétérisme avec épreuve respiratoire.",
+  tamp:"Tamponnade (piège post-opératoire : souvent localisée, l'égalisation peut manquer) : pressions diastoliques égalisées comme dans la constriction, MAIS descente y abolie sur l'OD (le cœur comprimé ne peut pas se remplir en protodiastole) et pas de dip-plateau sur le VD. Tachycardie, débit bas. En ventilation spontanée : pouls paradoxal.",
+  hypo:"Hypovolémie : toutes les pressions basses (OD < 5, PAPO < 8), tachycardie. Sous ventilation mécanique, la variation respiratoire des courbes augmente. Une PVC basse est spécifique d'un défaut de remplissage, mais une PVC normale ne l'exclut pas.",
+  it:"Insuffisance tricuspide sévère : onde « cv » géante sur l'OD, descente x abolie, descente y rapide : la courbe d'OD se « ventricularise » et ressemble à celle du VD. Piège : l'OD moyenne surestime la précharge du VD. La thermodilution est faussée (débit sous-estimé).",
+  rm:"Rétrécissement mitral : PAPO élevée avec onde a ample (en rythme sinusal) et descente y lente, PAPd − PAPO faible. Piège : la PAPO surestime la pression télédiastolique du VG, du gradient transmitral. HTP post-capillaire, VD de pression.",
+  ep:"Embolie pulmonaire massive : HTP pré-capillaire aiguë, PAPd − PAPO très élevé, PAPO normale ou basse. Un VD non préparé ne génère pas plus de 50–60 mmHg : une systolique VD très élevée évoque plutôt une HTP chronique.",
+  west:"PAPO en zone 1–2 de West (PEEP élevée, hypovolémie, sonde au-dessus de l'OG) : PAPO supérieure à la PAPd, ce qui est physiologiquement impossible, onde a et onde v émoussées, grande variation respiratoire. La PAPO reflète alors la pression alvéolaire. Vérifier la position de la sonde (radiographie de profil : sous l'OG) et le niveau de PEEP.",
+  ivd:"Insuffisance VD : OD élevée, proche ou au-dessus de la PAPO (OD/PAPO > 0,8), onde v de fuite tricuspide, VD peu pulsatile avec diastolique élevée, AP à faible pression pulsée. Une systolique VD basse évoque un VD défaillant (infarctus du VD, post-CEC) ; élevée, une surcharge de pression."
+};
+
+// ---------- MONTEE ----------
+const st={depth:15, bal:false, balT:0, quiz:false, prof:"normal", t:0};
+function chamber(){
+  const d=st.depth;
+  if(st.coil) return "VD";
+  if(d<30) return "OD";
+  if(d<40) return "VD";
+  if(st.bal && d>=45) return "PAPO";
+  if(!st.bal && d>=55) return "PAPO";
+  return "AP";
+}
+function press(ch,t){
+  const p=PROF[st.prof], ph=(t*p.hr/60)%1;
+  const resp = 2*Math.max(0,Math.sin(2*Math.PI*t/4)); // ventilation mécanique, petite variation
+  if(ch==="OD") return atrial(ph,p.ra,p.ar||2.5,p.vr||.7,p.xr??1,p.yr??1)+resp*.6;
+  if(ch==="VD") return rv(ph,p.rvs,p.rvd,p.dip,p.fl||0)+resp*.6;
+  if(ch==="AP") return pa(ph,p.pas,p.pad)+resp;
+  return atrial((ph+.92)%1,p.papo,p.ap||3,p.v,p.xp??1,p.yp??1)+resp*(p.rp||1);
+}
+const mon=$("mon"), mx=mon.getContext("2d");
+const W=mon.width,H=mon.height, WIN=6; let col=0, last=null, ys=new Array(W).fill(null), hist=[];
+function yOf(v){const m=PROF[st.prof].max; return H-12-(v/m)*(H-30);}
+function drawGrid(ctx,w,h,max,yfn,col){
+  ctx.fillStyle=css("--mon"); ctx.fillRect(0,0,w,h);
+  ctx.strokeStyle=css("--mon-grid"); ctx.fillStyle=css("--mon-text"); ctx.font="12px "+css("--f-mono"); ctx.lineWidth=1;
+  const step = max>50?20:10;
+  for(let v=0; v<=max; v+=step){const y=yfn(v); ctx.beginPath(); ctx.setLineDash([3,4]); ctx.moveTo(34,y); ctx.lineTo(w,y); ctx.stroke(); ctx.setLineDash([]); ctx.fillText(String(v),4,y+4);}
+}
+function frame(ts){
+  if(last===null) last=ts; const dt=Math.min(.1,(ts-last)/1000); last=ts; st.t+=dt;
+  if(st.bal) { st.balT+=dt; if(st.balT>15 && !st.balWarned && chamber()==="PAPO"){ alertMsg("Ballonnet gonflé depuis plus de 15 s en position bloquée : dégonflez-le (risque d'infarctus ou de rupture de l'artère pulmonaire)."); st.balWarned=true; } }
+  const ch=chamber(), pxPerS=(W-36)/WIN, n=Math.max(1,Math.round(dt*pxPerS));
+  for(let i=0;i<n;i++){ const tt=st.t-dt+dt*(i+1)/n; ys[col]=press(ch,tt); hist.push([tt,ys[col]]); col++; if(col>=W) col=36; }
+  while(hist.length && hist[0][0]<st.t-3) hist.shift();
+  drawGrid(mx,W,H,PROF[st.prof].max,yOf);
+  mx.strokeStyle = ch==="OD"?css("--ra"):css("--pa"); mx.lineWidth=2.2; mx.beginPath(); let pen=false;
+  for(let x=36;x<W;x++){ if(x>=col && x<col+16){pen=false;continue;} const v=ys[x]; if(v==null){pen=false;continue;} const y=yOf(v); if(!pen){mx.moveTo(x,y);pen=true;} else mx.lineTo(x,y); }
+  mx.stroke();
+  // lecture numérique
+  if(hist.length>10){ const vs=hist.map(h=>h[1]), mn=Math.min(...vs), mxv=Math.max(...vs), mean=vs.reduce((a,b)=>a+b,0)/vs.length;
+    $("m-num").innerHTML = (ch==="OD"||ch==="PAPO") ? `${fmt(mean)} <small>mmHg (moy.)</small>` : `${fmt(mxv)}/${fmt(mn)} <small>(${fmt(mean)})</small>`; }
+  $("m-ch").textContent = st.quiz ? "? ? ?" : ({OD:"OD · oreillette droite",VD:"VD · ventricule droit",AP:"AP · artère pulmonaire",PAPO:"PAPO · position bloquée"})[ch];
+  requestAnimationFrame(frame);
+}
+function alertMsg(t){ const d=document.createElement("div"); d.className="alert"; d.textContent=t; const a=$("alerts"); a.prepend(d); while(a.children.length>3) a.lastChild.remove(); }
+function depthbar(){
+  const segs=[["OD",15,30],["VD",30,40],["AP",40,45],["Bloquée",45,60]], span=45;
+  $("dbar").innerHTML = segs.map(([n,a,b])=>`<div class="seg" style="left:${(a-15)/span*100}%;width:${(b-a)/span*100}%">${st.quiz?"":n}</div>`).join("") + `<div class="tip" style="left:calc(${(st.depth-15)/span*100}% - 1px)"></div>`;
+  $("m-depth").textContent = st.depth+" cm" + (st.bal?" · ballonnet gonflé":"");
+}
+
+// ---------- SCHÉMA DE POSITION ----------
+// Vue de face, voie jugulaire interne droite. Chaque segment couvre une plage de profondeur ;
+// « b » = segment situé en arrière de l'aorte et de la VCS (AP droite), dessiné sous ces structures.
+const SEGS=[
+  [5,15,"M154,0 L154,160","f"],
+  [15,30,"M154,160 C150,210 144,250 143,290","f"],
+  [30,40,"M143,290 C142,330 170,366 208,360 C240,354 248,306 248,272 C248,248 256,228 263,214","f"],
+  [40,42,"M263,214 C266,180 272,146 276,122","f"],
+  [42,45,"M276,122 C250,114 170,111 112,113","b"],
+  [45,60,"M112,113 C86,114 66,128 50,152","b"]];
+const COIL="M143,290 C140,340 200,372 222,340 C238,316 196,300 190,330 C186,352 214,356 226,336";
+const NS="http://www.w3.org/2000/svg";
+const mkPath=(d,g)=>{ const mk=c=>{const e=document.createElementNS(NS,"path"); e.setAttribute("d",d); e.setAttribute("class",c); $(g).appendChild(e); return e;}; const o=mk("cat-o"), c=mk("cat-c"); return {o,c,getTotalLength:()=>c.getTotalLength(),getPointAtLength:l=>c.getPointAtLength(l)}; };
+const segEls=SEGS.map(([a,b,d,l])=>mkPath(d,l==="b"?"cat-b":"cat-f"));
+const coilEl=mkPath(COIL,"cat-f");
+const segLen=segEls.map(e=>e.getTotalLength()), coilLen=coilEl.getTotalLength();
+let lastMove="", svRevealed=false;
+function partial(el,L,f){ [el.o,el.c].forEach(e=>{ e.style.strokeDasharray=`${Math.max(0.01,L*f)} ${L+10}`; e.style.display = f>0?"":"none"; }); }
+// petites courbes de référence de chaque station, pour le profil choisi
+function miniTraces(){
+  const p=PROF[st.prof], save=st.t;
+  $("mini").innerHTML=["OD","VD","AP","PAPO"].map(c=>{
+    const pts=[]; for(let i=0;i<=120;i++){ const t=2+i/120*(120/p.hr); pts.push([i, press(c,t)]); }
+    const d=pts.map(([x,v],i)=>(i?"L":"M")+(x*100/120).toFixed(1)+","+(38-v/p.max*34).toFixed(1)).join(" ");
+    return `<div class="mt" data-c="${c}"><svg viewBox="0 0 100 40" aria-hidden="true"><path d="${d}" class="${c==="OD"?"mt-ra":"mt-pa"}"/></svg><span>${c}</span></div>`;
+  }).join("");
+}
+function schema(){
+  const d=st.depth, ch=chamber(); let tipPt;
+  if(st.coil){
+    segEls.forEach((e,i)=>partial(e,segLen[i],i<2?1:0));
+    const f=Math.min(1,.45+(d-25)/30); partial(coilEl,coilLen,f); tipPt=coilEl.getPointAtLength(coilLen*f);
+  } else {
+    partial(coilEl,coilLen,0);
+    SEGS.forEach(([a,b],i)=>{ const f=Math.max(0,Math.min(1,(d-a)/(b-a))); partial(segEls[i],segLen[i],f); if(d>=a&&d<=b) tipPt=segEls[i].getPointAtLength(segLen[i]*f); });
+  }
+  $("tip").setAttribute("cx",tipPt.x); $("tip").setAttribute("cy",tipPt.y);
+  const bl=$("bal"); bl.style.display=st.bal?"":"none"; bl.setAttribute("cx",tipPt.x); bl.setAttribute("cy",tipPt.y);
+  if(st.bal && ch==="PAPO"){ bl.setAttribute("rx",8); bl.setAttribute("ry",11); } else { bl.setAttribute("rx",7); bl.setAttribute("ry",5); }
+  const zone = ch==="PAPO" ? "APD" : (ch==="AP" && d>42 ? "APD" : ch);
+  ["VCS","OD","VD","AP","APD"].forEach(c=>$("h-"+c).classList.toggle("on",c===zone));
+  ["VCS","OD","VD","AP"].forEach(c=>$("l-"+c).classList.toggle("on",c===zone));
+  $("l-PAPO").classList.toggle("on",zone==="APD");
+  $("mini").querySelectorAll(".mt").forEach(m=>m.classList.toggle("on",m.dataset.c===ch));
+  const nom={OD:"oreillette droite",VD:st.coil?"ventricule droit (boucle)":"ventricule droit",AP:d>42?"AP droite, non bloquée":"tronc de l'artère pulmonaire",PAPO:"AP droite, ballonnet bloquant le flux"}[ch];
+  $("sv-pos").innerHTML="Extrémité : <b>"+nom+"</b>";
+  $("sv-mv").textContent=lastMove;
+  const hide=st.quiz && !svRevealed; $("sv-cache").hidden=!hide; $("sv").style.visibility=hide?"hidden":"visible"; $("sv-pos").style.visibility=hide?"hidden":"visible"; $("mini").style.visibility=hide?"hidden":"visible";
+}
+function moved(){ depthbar(); svRevealed=false; schema(); $("q-fb").textContent=""; hist=[]; }
+$("b-adv").addEventListener("click",()=>{
+  lastMove="▲ montée (+5 cm)";
+  if(st.depth>=60){ alertMsg("Profondeur maximale de l'exercice atteinte."); return; }
+  if(!st.bal && st.depth>=20 && st.depth<45){ st.coil=true; st.depth+=5; alertMsg("Progression ballonnet dégonflé : la sonde ne flotte pas et forme une boucle dans le VD. Risque d'arythmie et de perforation. Reculez, gonflez, puis avancez."); moved(); return; }
+  st.depth+=5; if(st.depth>=40 && st.coil && st.bal) st.coil=false;
+  if(chamber()==="PAPO" && !st.bal) alertMsg("Sonde en position bloquée ballonnet dégonflé : retirez-la de quelques centimètres (risque d'infarctus pulmonaire).");
+  if(st.depth>40 && !st.coil && chamber()==="AP" && st.depth>=50) alertMsg("Plus de 10 cm depuis l'AP sans position bloquée : vérifiez le gonflage et pensez à une boucle.");
+  moved();
+});
+$("b-back").addEventListener("click",()=>{
+  lastMove=st.depth>15?"▼ retrait (−5 cm)":"";
+  if(st.bal) alertMsg("On recule toujours ballonnet dégonflé : un ballonnet gonflé peut léser les valves pulmonaire et tricuspide.");
+  st.depth=Math.max(15,st.depth-5); if(st.depth<30) st.coil=false; moved();
+});
+$("b-bal").addEventListener("click",()=>{
+  st.bal=!st.bal; st.balT=0; st.balWarned=false;
+  if(st.coil && st.bal){ alertMsg("Ballonnet gonflé : la sonde est de nouveau entraînée par le flux. Reculez de 5 cm pour défaire la boucle."); }
+  $("b-bal").textContent = st.bal?"Dégonfler le ballonnet":"Gonfler le ballonnet"; $("b-bal").setAttribute("aria-pressed",st.bal); moved();
+});
+function profNote(){ $("prof-note").textContent=NOTES[st.prof]; }
+$("prof").addEventListener("change",e=>{st.prof=e.target.value; ys.fill(null); hist=[]; profNote(); miniTraces(); schema();});
+profNote();
+$("b-quiz").addEventListener("click",()=>{ st.quiz=!st.quiz; $("b-quiz").setAttribute("aria-pressed",st.quiz); $("quiz").hidden=!st.quiz; svRevealed=false; depthbar(); schema(); });
+$("q-ans").innerHTML=["OD","VD","AP","PAPO"].map(c=>`<button class="ghost" data-c="${c}">${c}</button>`).join("");
+$("q-ans").addEventListener("click",e=>{ const b=e.target.closest("button"); if(!b) return; const c=chamber(), ok=b.dataset.c===c;
+  const why={OD:"onde a, onde v, pression basse sans plateau systolique",VD:"systolique identique à celle de l'AP mais diastolique basse, proche de la PVC, qui remonte pendant la diastole ; au passage VD→AP, c'est la diastolique qui monte",AP:"diastolique qui descend pendant la diastole, avec une incisure dicrote",PAPO:"retour d'une courbe auriculaire, moyenne inférieure à la PAP diastolique"}[c];
+  svRevealed=true; schema(); $("q-fb").className="fb "+(ok?"ok":"ko"); $("q-fb").textContent=(ok?"Exact : ":"Non, c'est "+c+" : ")+why+"."; });
+depthbar(); miniTraces(); schema(); requestAnimationFrame(frame);
+
+// ---------- PAPO ----------
+const PCASES=[
+  {t:"Patient ventilé, PEP 5", s:"Post-opératoire de pontage, ventilation contrôlée. Ballonnet gonflé, courbe auriculaire franche.", B:12, amp:3, v:.8, r:+6, mode:"vent", ans:12,
+   fb:"En ventilation contrôlée, l'insufflation augmente la pression intrathoracique : la courbe monte à l'inspiration. La fin d'expiration correspond au niveau le plus bas, juste avant l'insufflation suivante. Le moniteur, qui fait une moyenne sur plusieurs cycles, surestime la valeur."},
+  {t:"Respiration spontanée, dyspnée", s:"Patient extubé, polypnée et tirage. Ballonnet gonflé, courbe auriculaire franche.", B:18, amp:3, v:.8, r:-11, mode:"spont", ans:18,
+   fb:"En ventilation spontanée, l'inspiration abaisse la pression intrathoracique : la courbe descend. La fin d'expiration est le plateau haut. Lire le creux ou la moyenne du moniteur sous-estime fortement la PAPO quand l'effort inspiratoire est important."},
+  {t:"Onde v géante", s:"Infarctus inférieur compliqué d'un souffle apparu ce matin. Patient ventilé, ballonnet gonflé.", B:16, amp:3, v:6.5, r:+4, mode:"vent", ans:16,
+   fb:"L'onde v géante traduit le reflux mitral dans une oreillette peu compliante. Pour estimer la pression de remplissage du VG, on lit la moyenne de l'onde a, ou le niveau juste avant l'onde v, en fin d'expiration. Le sommet de l'onde v surestime la pression télédiastolique. Attention : ce tracé peut être confondu avec une courbe d'AP."},
+  {t:"PEP élevée", s:"SDRA sévère, PEP 14 cmH₂O. Patient ventilé, ballonnet gonflé.", B:22, amp:3, v:.8, r:+7, mode:"vent", ans:22,
+   fb:"La lecture se fait de la même façon, en fin d'expiration : la valeur est 22 mmHg. Mais avec une PEP élevée, une partie de cette pression vient du thorax et non du cœur : la pression transmurale est plus basse. Ne jamais débrancher le patient du ventilateur pour mesurer."},
+  {t:"Gonflage prolongé", s:"Lors d'une mesure, la pression monte progressivement sans onde a ni onde v identifiable.", over:true, ans:"inv",
+   fb:"C'est une surpression bloquée (overwedge) : le ballonnet excentré ou surgonflé obstrue l'orifice distal, ou la sonde est trop distale. La pression monte sans pulsatilité : elle ne reflète pas l'oreillette gauche. Dégonfler, retirer légèrement la sonde et recommencer avec un volume de gonflage moindre."}
+];
+let pi=0; const pdone=new Set(); let pShow=false;
+const pcv=$("pcv"), px=pcv.getContext("2d");
+function respTerm(c,t){ const tau=(t%4)/4; if(c.mode==="vent") return tau<.35? c.r*Math.sin(Math.PI*tau/.35):0; return tau<.4? c.r*Math.sin(Math.PI*tau/.4):0; }
+function drawPapo(){
+  const c=PCASES[pi], w=pcv.width, h=pcv.height, top=h*.72, max=50, yf=v=>top-8-(v/max)*(top-18), T=12;
+  drawGrid(px,w,top,max,yf);
+  px.fillStyle=css("--mon"); px.fillRect(0,top,w,h-top);
+  if(pShow){ // fenêtres de fin d'expiration
+    px.fillStyle="rgba(124,196,138,.12)"; for(let k=0;k<3;k++){ const a=34+((k*4+3.2)/T)*(w-34), b=34+((k*4+4)/T)*(w-34); px.fillRect(a,0,b-a,h); } }
+  px.strokeStyle=css("--paw"); px.lineWidth=2.2; px.beginPath();
+  for(let x=34;x<w;x++){ const t=(x-34)/(w-34)*T; let v;
+    if(c.over) v = 14 + 26*(1-Math.exp(-t/3.5)) + .4*Math.sin(t*7);
+    else v = atrial((t*90/60)%1, c.B, c.amp, c.v) + respTerm(c,t);
+    x===34?px.moveTo(x,yf(v)):px.lineTo(x,yf(v)); }
+  px.stroke();
+  // trace respiratoire
+  px.strokeStyle=css("--resp"); px.lineWidth=1.6; px.beginPath();
+  for(let x=34;x<w;x++){ const t=(x-34)/(w-34)*T, tau=(t%4)/4, on = c.mode==="spont"? tau<.4 : tau<.35;
+    const r = c.over? 0 : (on? Math.sin(Math.PI*tau/(c.mode==="spont"?.4:.35)) : 0)*(c.mode==="spont"?-1:1);
+    const y = top+ (h-top)/2 - r*(h-top)*.32; x===34?px.moveTo(x,y):px.lineTo(x,y); }
+  px.stroke();
+  px.fillStyle=css("--mon-text"); px.font="12px "+css("--f-mono");
+  px.fillText(c.over?"respiration":(c.mode==="spont"?"respiration spontanée (inspiration vers le bas)":"pression des voies aériennes (insufflation vers le haut)"),40,top+16);
+  px.fillText("mmHg",40,14);
+  // curseur
+  const cur=+$("p-cur").value; px.strokeStyle=css("--accent"); px.setLineDash([8,5]); px.lineWidth=2; px.beginPath(); px.moveTo(34,yf(cur)); px.lineTo(w,yf(cur)); px.stroke(); px.setLineDash([]);
+  if(pShow && c.ans!=="inv"){ px.strokeStyle=css("--good"); px.lineWidth=2.5; px.beginPath(); px.moveTo(34,yf(c.ans)); px.lineTo(w,yf(c.ans)); px.stroke(); px.fillStyle=css("--good"); px.font="bold 14px "+css("--f-mono"); px.fillStyle=css("--mon"); px.fillRect(40,yf(c.ans)-22,96,18); px.fillStyle=css("--good"); px.fillText("PAPO "+c.ans,44,yf(c.ans)-8); }
+}
+function loadP(i){ pi=i; pShow=false; const c=PCASES[i]; $("p-title").textContent=`Tracé ${i+1}. ${c.t}`; $("p-story").textContent=c.s;
+  $("p-fb").innerHTML='<p class="muted">Placez le curseur sur la valeur que vous liriez, puis validez. La correction s\'affiche ici et sur le tracé.</p>';
+  $("p-chips").innerHTML=PCASES.map((_,k)=>`<button class="chip ${pdone.has(k)?"done":""}" aria-pressed="${k===pi}" data-i="${k}">${k+1}</button>`).join(""); drawPapo(); }
+function answerP(val){ const c=PCASES[pi]; pShow=true; pdone.add(pi); let ok;
+  if(c.ans==="inv") ok = val==="inv"; else ok = val!=="inv" && Math.abs(val-c.ans)<=2;
+  const your = val==="inv"?"non interprétable":val+" mmHg", right = c.ans==="inv"?"non interprétable":c.ans+" mmHg";
+  $("p-fb").innerHTML=`<p class="fb ${ok?"ok":"ko"}">${ok?"Exact":"À revoir"} : votre lecture ${your}, attendu ${right}.</p><p>${c.fb}</p>`+(c.ans!=="inv"?'<p class="muted">Sur le tracé : ligne verte = valeur attendue, bandes vertes = fins d\'expiration.</p>':"");
+  loadChipsOnly(); drawPapo(); }
+function loadChipsOnly(){ $("p-chips").innerHTML=PCASES.map((_,k)=>`<button class="chip ${pdone.has(k)?"done":""}" aria-pressed="${k===pi}" data-i="${k}">${k+1}</button>`).join(""); }
+$("p-chips").addEventListener("click",e=>{const b=e.target.closest(".chip"); if(b) loadP(+b.dataset.i);});
+$("p-cur").addEventListener("input",()=>{$("p-out").textContent=$("p-cur").value+" mmHg"; drawPapo();});
+$("p-ok").addEventListener("click",()=>answerP(+$("p-cur").value));
+$("p-inv").addEventListener("click",()=>answerP("inv"));
+$("p-next").addEventListener("click",()=>loadP((pi+1)%PCASES.length));
+$("p-out").textContent=$("p-cur").value+" mmHg";
+
+// ---------- THERMODILUTION ----------
+function gamma(t,dc,shape){ // ΔT en °C ; aire = 17,8 / DC
+  const s=Math.sqrt(5/dc), b=1.6*s, t0=2*s, A=(17.8/dc)/(2*b**3);
+  const g=(tt,A,b,t0)=> tt<=t0?0:A*(tt-t0)**2*Math.exp(-(tt-t0)/b);
+  if(shape==="it") return .55*g(t,A,b*1.25,t0) + .45*g(t,A*.13,b*2.6,t0+1); // reflux : pic bas, queue longue
+  if(shape==="slow") return .5*g(t,A,b,t0) + .5*g(t,A,b,t0+2.2) + (t>t0+1?.02*Math.sin(t*5):0);
+  return g(t,A,b,t0);
+}
+const TD = {
+  ok:  {f:1,   txt:"Injection rapide et régulière : montée brève, pic net, retour progressif à la ligne de base."},
+  vol: {f:.7,  txt:"Moins de froid injecté que prévu : l'aire diminue, et le moniteur, qui suppose le volume programmé, surestime le débit."},
+  warm:{f:.75, txt:"L'injectat tenu en main s'est réchauffé : l'écart de température est plus faible, l'aire diminue et le débit est surestimé."},
+  it:  {f:1,   txt:"Une partie de l'indicateur reflue dans l'oreillette puis repasse : pic bas, décroissance traînante. La mesure est peu fiable, le plus souvent sous-estimée."},
+  slow:{f:1,   txt:"Injection lente ou en deux temps : courbe irrégulière à deux bosses. La mesure doit être rejetée et refaite."}
+};
+const tcv=$("tcv"), tx=tcv.getContext("2d");
+function drawTD(){
+  const dc=+$("t-dc").value, sc=$("t-sc").value, cfg=TD[sc], w=tcv.width, h=tcv.height, T=20, max=1.0, yf=v=>h-24-(v/max)*(h-40);
+  tx.fillStyle=css("--mon"); tx.fillRect(0,0,w,h);
+  tx.strokeStyle=css("--mon-grid"); tx.fillStyle=css("--mon-text"); tx.font="12px "+css("--f-mono");
+  for(let v=0;v<=1.0001;v+=.25){const y=yf(v); tx.setLineDash([3,4]); tx.beginPath(); tx.moveTo(40,y); tx.lineTo(w,y); tx.stroke(); tx.setLineDash([]); tx.fillText(fmt(v,2),4,y+4);}
+  for(let s=0;s<=T;s+=5){const x=Math.min(w-34,40+s/T*(w-40)); tx.fillText(s+" s",x-8,h-6);}
+  tx.fillText("ΔT (°C)",44,14);
+  let area=0; const pts=[];
+  for(let x=40;x<w;x++){const t=(x-40)/(w-40)*T, v=gamma(t,dc,sc)*cfg.f; pts.push([x,yf(v)]); area+=v*T/(w-40);}
+  tx.fillStyle="rgba(79,179,217,.18)"; tx.beginPath(); tx.moveTo(40,yf(0)); pts.forEach(p=>tx.lineTo(p[0],p[1])); tx.lineTo(w,yf(0)); tx.fill();
+  tx.strokeStyle=css("--ra"); tx.lineWidth=2.4; tx.beginPath(); pts.forEach((p,i)=>i?tx.lineTo(p[0],p[1]):tx.moveTo(p[0],p[1])); tx.stroke();
+  const measured = 17.8/area;
+  $("t-num").innerHTML = sc==="slow" ? `${fmt(measured,1)} <small>L/min · à rejeter</small>` : `${fmt(measured,1)} <small>L/min</small>`;
+  $("t-dco").textContent=fmt(dc,1)+" L/min"; $("t-expl").textContent=cfg.txt;
+}
+["t-dc","t-sc"].forEach(id=>$(id).addEventListener("input",drawTD));
+// quiz
+const qcv=$("qcv"), qx=qcv.getContext("2d"); let qd=[];
+const QC=["#4FB3D9","#E9B949","#9FD38A"];
+function newTQ(){ const base=[2+Math.random()*1.5, 4+Math.random()*1.5, 6.5+Math.random()*2]; qd=base.sort(()=>Math.random()-.5);
+  const w=qcv.width,h=qcv.height,T=20,yf=v=>h-20-(v/1.3)*(h-30);
+  qx.fillStyle=css("--mon"); qx.fillRect(0,0,w,h);
+  qd.forEach((dc,i)=>{ qx.strokeStyle=QC[i]; qx.lineWidth=2.4; qx.beginPath(); for(let x=10;x<w;x++){const t=(x-10)/(w-10)*T, v=gamma(t,dc,"ok"); x===10?qx.moveTo(x,yf(v)):qx.lineTo(x,yf(v));} qx.stroke();
+    let pk=0,px0=0; for(let x=10;x<w;x++){const v=gamma((x-10)/(w-10)*T,dc,"ok"); if(v>pk){pk=v;px0=x;}} qx.fillStyle=QC[i]; qx.font="bold 15px "+css("--f-mono"); qx.fillText("ABC"[i],px0+6+i*10,yf(pk)-4-i*4); });
+  $("tq-fb").textContent=""; }
+$("tq-ans").innerHTML=["A","B","C"].map((l,i)=>`<button class="ghost" data-i="${i}">Courbe ${l}</button>`).join("")+`<button class="ghost" id="tq-new">Autres courbes</button>`;
+$("tq-ans").addEventListener("click",e=>{ const b=e.target.closest("button"); if(!b) return; if(b.id==="tq-new"){newTQ();return;}
+  const lo=qd.indexOf(Math.min(...qd)), ok=+b.dataset.i===lo;
+  $("tq-fb").className="fb "+(ok?"ok":"ko");
+  $("tq-fb").textContent=(ok?"Exact. ":"Non. ")+`Courbe ${"ABC"[lo]} : la plus grande aire, donc le plus petit débit. Débits : A ${fmt(qd[0],1)}, B ${fmt(qd[1],1)}, C ${fmt(qd[2],1)} L/min.`; });
+
+// ---------- CALCULS ----------
+const PROFILES={
+  normal:{n:"Hémodynamique normale", g:()=>({fc:78,pas:120,pad:65,pvc:6,paps:26,papd:11,papo:9,dc:5.2})},
+  vaso:{n:"Vasoplégie", g:()=>({fc:105,pas:88,pad:42,pvc:7,paps:28,papd:13,papo:10,dc:7.4})},
+  basdeb:{n:"Bas débit par défaillance VG", g:()=>({fc:110,pas:88,pad:58,pvc:12,paps:46,papd:26,papo:23,dc:2.9})},
+  vd:{n:"Défaillance VD", g:()=>({fc:100,pas:85,pad:52,pvc:17,paps:30,papd:17,papo:12,dc:3.0})},
+  precap:{n:"HTP pré-capillaire", g:()=>({fc:92,pas:110,pad:65,pvc:11,paps:68,papd:30,papo:10,dc:3.8})}
+};
+const J=(v,p)=>v*(1+(Math.random()*2-1)*p);
+let cur=null, cnum=0;
+function newPatient(){
+  const keys=Object.keys(PROFILES), k=keys[Math.floor(Math.random()*keys.length)], b=PROFILES[k].g();
+  const d={fc:Math.round(J(b.fc,.06)),pas:Math.round(J(b.pas,.05)),pad:Math.round(J(b.pad,.05)),pvc:Math.max(2,Math.round(J(b.pvc,.1))),paps:Math.round(J(b.paps,.06)),papd:Math.round(J(b.papd,.06)),papo:Math.max(4,Math.round(J(b.papo,.08))),dc:+J(b.dc,.06).toFixed(1),sc:+J(1.9,.06).toFixed(2)};
+  if(d.papo>d.papd-1) d.papo=d.papd-1;
+  d.pam=Math.round(d.pad+(d.pas-d.pad)/3); d.papm=Math.round(d.papd+(d.paps-d.papd)/3);
+  const r={ic:d.dc/d.sc, rvs:80*(d.pam-d.pvc)/d.dc, gtp:d.papm-d.papo, rvp:(d.papm-d.papo)/d.dc, gdp:d.papd-d.papo, ratio:d.pvc/d.papo, papi:(d.paps-d.papd)/d.pvc};
+  cur={k,d,r}; cnum++;
+  $("c-title").textContent="Patient "+cnum;
+  const L=[["FC",d.fc+" /min"],["PA",`${d.pas}/${d.pad} (${d.pam})`],["PVC",d.pvc+" mmHg"],["PAP",`${d.paps}/${d.papd} (${d.papm})`],["PAPO",d.papo+" mmHg"],["DC",fmt(d.dc,1)+" L/min"],["SC",fmt(d.sc,2)+" m²"]];
+  $("c-data").innerHTML=L.map(([a,b])=>`<div class="datum"><span>${a}</span><b>${b}</b></div>`).join("");
+  const Q=[["ic","IC","L/min/m²",2],["rvs","RVS","dyn·s·cm⁻⁵",0],["gtp","GTP","mmHg",0],["rvp","RVP","UW",1],["gdp","GDP","mmHg",0],["ratio","PVC / PAPO","",2],["papi","PAPi","",1]];
+  $("c-calc").innerHTML=Q.map(([id,n,u,dec])=>`<label class="lab" for="in-${id}">${n}<small>${u}</small></label><input id="in-${id}" inputmode="decimal" autocomplete="off" data-dec="${dec}"><span class="res" id="res-${id}"></span>`).join("");
+  $("c-prof").innerHTML=Object.entries(PROFILES).map(([kk,v])=>`<label class="opt" id="po-${kk}"><input type="radio" name="prof" id="pr-${kk}" value="${kk}"> <span>${v.n}</span></label>`).join("");
+  $("c-fb").textContent="";
+}
+$("c-check").addEventListener("click",()=>{
+  const r=cur.r; let all=true;
+  Object.keys(r).forEach(id=>{ const el=$("in-"+id), out=$("res-"+id), dec=+el.dataset.dec, raw=el.value.replace(",",".").trim(), v=parseFloat(raw), exp=r[id];
+    const ok = raw!=="" && Math.abs(v-exp) <= Math.max(Math.abs(exp)*.05, dec===0?1:Math.pow(10,-dec));
+    if(!ok) all=false; out.className="res "+(ok?"ok":"ko"); out.textContent=(ok?"✓ ":"✗ ")+fmt(exp,dec); });
+  const sel=document.querySelector('input[name="prof"]:checked');
+  document.querySelectorAll("#c-prof .opt").forEach(o=>o.classList.remove("good","bad"));
+  $("po-"+cur.k).classList.add("good"); if(sel && sel.value!==cur.k) $("po-"+sel.value).classList.add("bad");
+  const pOK = sel && sel.value===cur.k;
+  $("c-fb").className="fb "+(all&&pOK?"ok":"ko");
+  $("c-fb").textContent = (all?"Calculs exacts. ":"Certains calculs sont à revoir (tolérance 5 %). ") + (sel? (pOK?"Profil exact.":"Profil attendu : "+PROFILES[cur.k].n+".") : "Choisissez un profil.");
+});
+$("c-new").addEventListener("click",newPatient);
+
+// ---------- QUEL PROFIL ? ----------
+const NOMS={normal:"Hémodynamique normale",postcap:"HTP post-capillaire (insuffisance VG)",precap:"HTP pré-capillaire chronique",im:"Insuffisance mitrale aiguë",ivd:"Insuffisance ventriculaire droite",constr:"Péricardite constrictive",restr:"Cardiomyopathie restrictive",tamp:"Tamponnade",hypo:"Hypovolémie",it:"Insuffisance tricuspide sévère",rm:"Rétrécissement mitral",ep:"Embolie pulmonaire massive",west:"PAPO en zone 1–2 de West"};
+const GROUPES=[
+  {n:"Pressions diastoliques élevées et égalisées", q:"Égalisation des pressions diastoliques : constriction, restriction ou tamponnade ?", k:["constr","restr","tamp"]},
+  {n:"PAPO élevée ou trompeuse", q:"La PAPO reflète-t-elle la pression de remplissage du VG ?", k:["postcap","im","rm","west"]},
+  {n:"Défaillance droite", q:"Pourquoi l'OD est-elle haute : VD défaillant, obstacle aigu, HTP chronique ou fuite ?", k:["ivd","ep","precap","it"]},
+  {n:"Tous les profils", q:"Treize profils, du normal aux pièges.", k:Object.keys(NOMS)}];
+const SIG={
+  normal:"des pressions toutes dans les normes (OD 2–8, AP 15–30 / 8–15, PAPO 6–12)",
+  postcap:"une PAPO élevée avec un gradient PAPd − PAPO faible (< 7 mmHg) et sans onde v géante",
+  precap:"une PAPO normale, un gradient PAPd − PAPO > 7 mmHg et une systolique VD très élevée (≥ 70), possible seulement pour un VD hypertrophié",
+  im:"une onde v géante sur la PAPO",
+  ivd:"une OD proche ou au-dessus de la PAPO, un VD peu pulsatile à systolique basse et une onde v de fuite",
+  constr:"des diastoliques égalisées, une OD en M ou W (descente y profonde), un dip-plateau et une télédiastolique VD > 1/3 de la systolique VD",
+  restr:"un dip-plateau, mais une PAPO supérieure à l'OD de plus de 5 mmHg et une systolique VD > 50",
+  tamp:"des diastoliques égalisées avec une descente y abolie et sans dip-plateau",
+  hypo:"des pressions toutes basses avec une tachycardie",
+  it:"une onde cv géante sur l'OD avec une descente x abolie (OD « ventricularisée »)",
+  rm:"une PAPO élevée avec une onde a ample, une descente y lente et un gradient PAPd − PAPO faible",
+  ep:"un gradient PAPd − PAPO élevé avec une systolique VD plafonnée vers 50 (VD aigu) et une OD haute",
+  west:"une PAPO supérieure à la PAPd, des ondes émoussées et une grande variation respiratoire"};
+const PAIRES={
+  "constr|restr":"Écart PAPO − OD : il est faible ici, et la systolique VD reste < 50. Le péricarde impose la même pression à toutes les cavités. La restriction, maladie du myocarde, touche davantage le VG : PAPO > OD de plus de 5 mmHg.",
+  "restr|constr":"Le dip-plateau est bien là, mais regardez l'écart PAPO − OD (> 5 mmHg) et la systolique VD (> 50). Dans la constriction, l'enveloppe commune égalise les pressions : un tel écart n'est pas compatible.",
+  "constr|tamp":"Les diastoliques sont égalisées dans les deux cas. Mais ici l'OD a une descente y profonde et le VD un dip-plateau : le remplissage protodiastolique est conservé, puis stoppé net par le péricarde rigide. Dans la tamponnade, la compression est permanente : pas de y, pas de dip.",
+  "tamp|constr":"Regardez la descente y de l'OD : elle est abolie, et le VD n'a pas de dip-plateau. Le cœur est comprimé pendant tout le cycle : il ne peut pas se remplir rapidement en protodiastole. C'est l'inverse de la constriction.",
+  "tamp|restr":"Pas de dip-plateau ni de descente y : le remplissage protodiastolique est empêché. Et les pressions sont égalisées (PAPO ≈ OD), alors que la restriction donnerait PAPO > OD.",
+  "restr|tamp":"La descente y est profonde et le VD a un dip-plateau : le remplissage protodiastolique existe. De plus PAPO > OD : pas d'égalisation.",
+  "im|postcap":"PAPO élevée dans les deux cas, mais ici l'onde v est géante, très au-dessus de la moyenne : c'est la fuite mitrale. À l'inverse, l'absence d'onde v n'exclut pas une IM (OG dilatée et compliante).",
+  "postcap|im":"Pas d'onde v géante : l'élévation de la PAPO est globale. Et une onde v géante n'est pas spécifique de l'IM (RM, CIV, OG peu compliante).",
+  "rm|postcap":"Les chiffres se ressemblent. L'onde a ample et la descente y lente orientent vers un obstacle à la vidange de l'OG, mais seule l'échographie tranche. À retenir : dans le RM, la PAPO surestime la pression télédiastolique du VG.",
+  "postcap|rm":"Sans onde a ample ni descente y ralentie, rien n'oriente vers un obstacle mitral : l'élévation de la PAPO traduit une pression de remplissage du VG élevée. Distinction difficile sur les seules pressions : l'échographie tranche.",
+  "rm|im":"L'onde dominante ici est l'onde a, pas l'onde v. Dans le RM, l'OG se contracte contre un orifice étroit ; dans l'IM aiguë, c'est la régurgitation systolique qui gonfle l'onde v.",
+  "im|rm":"L'onde dominante est l'onde v, systolique : c'est la régurgitation qui remplit l'OG pendant la systole du VG.",
+  "ivd|ep":"Le gradient PAPd − PAPO est faible ici : pas d'obstacle vasculaire pulmonaire. Le VD est défaillant à pression basse (OD ≥ PAPO), comme dans l'infarctus du VD ou après CEC.",
+  "ep|ivd":"Regardez le gradient PAPd − PAPO : > 7 mmHg, signe d'un obstacle pré-capillaire. La systolique VD reste modérée parce qu'un VD aigu, non hypertrophié, ne peut pas monter plus haut.",
+  "ep|precap":"Gradient pré-capillaire dans les deux cas. Une systolique VD sous 50–60 avec une OD haute signe un VD aigu, dépassé. Une systolique ≥ 70 suppose un VD hypertrophié, donc une HTP chronique.",
+  "precap|ep":"Systolique VD ≥ 70 : un VD aigu ne peut pas générer une telle pression. C'est un VD adapté à une HTP ancienne.",
+  "it|ivd":"Onde cv géante et descente x abolie : l'OD se « ventricularise ». C'est la fuite tricuspide qui domine. Dans l'insuffisance VD isolée, l'onde v est moins ample et la descente x persiste.",
+  "ivd|it":"L'onde v existe mais la descente x persiste, et le VD est peu pulsatile à systolique basse : la défaillance du VD est au premier plan, la fuite est secondaire.",
+  "it|precap":"La systolique VD est modérée et le gradient PAPd − PAPO faible : pas d'HTP pré-capillaire significative. L'élévation de l'OD vient de la fuite (onde cv géante).",
+  "precap|it":"L'onde v de l'OD n'est pas géante ; c'est la systolique VD très élevée et le gradient PAPd − PAPO > 7 qui dominent."
+};
+const WEST_KEY="Clé : la PAPO est supérieure à la PAPd. Le sang ne peut pas s'écouler de l'AP vers l'OG contre ce gradient : la PAPO ne mesure plus l'OG mais la pression alvéolaire (zone 1–2 de West). Indices associés : ondes a et v émoussées, grande variation respiratoire.";
+const WEST_NOT="Pour évoquer une zone 1–2, il faudrait une PAPO supérieure à la PAPd. Ici la PAPO est inférieure à la PAPd : la colonne de sang est continue jusqu'à l'OG.";
+const f0=v=>fmt(Math.abs(v)<.5?0:v);
+const pressP=(p,ch,t)=>{ const s=st.prof; PROF.__c=p; st.prof="__c"; const v=press(ch,t); st.prof=s; return v; };
+const dg={grp:0,k:null,p:null,cav:"OD",n:0,ok:0,done:false}, dcv=$("dcv"), dx=dcv.getContext("2d");
+$("d-grp").innerHTML=GROUPES.map((g,i)=>`<option value="${i}">${g.n}</option>`).join("");
+$("d-cav").innerHTML=["OD","VD","AP","PAPO"].map(c=>`<button class="ghost" data-c="${c}" aria-pressed="${c==="OD"}">${c}</button>`).join("");
+function jitter(p){ const q={...p}, f=()=>1+(Math.random()*.12-.06);
+  ["ra","rvs","rvd","pas","pad","papo","fl"].forEach(k=>{ if(q[k]!=null) q[k]=Math.max(1,Math.round(q[k]*f())); });
+  q.rvs=Math.max(q.rvs,q.pas); q.pas=q.rvs;
+  if(p===PROF.west) q.papo=Math.max(q.papo,q.pad+3); else q.pad=Math.max(q.pad,q.papo+2); /* garde les signes discriminants */ q.hr=Math.round(q.hr+(Math.random()*10-5)); return q; }
+function stats(p,ch){ let mn=1e9,mx=-1e9,s=0,n=0; for(let t=0;t<4;t+=.005){ const ph=(t*p.hr/60)%1; if(Math.sin(2*Math.PI*t/4)>.05) continue; const v=pressP(p,ch,t); mn=Math.min(mn,v); mx=Math.max(mx,v); s+=v; n++; } return {mn,mx,m:s/n}; }
+function newCase(){
+  const ks=GROUPES[dg.grp].k; let k; do{ k=ks[Math.floor(Math.random()*ks.length)]; }while(ks.length>1 && k===dg.k);
+  dg.k=k; dg.p=jitter(PROF[k]); dg.done=false; dg.v={};
+  ["OD","VD","AP","PAPO"].forEach(c=>dg.v[c]=stats(dg.p,c));
+  $("dv-OD").textContent=fmt(dg.v.OD.m); $("dv-VD").textContent=dg.p.rvs+"/"+dg.p.rvd;
+  $("dv-AP").textContent=dg.p.pas+"/"+dg.p.pad+" ("+fmt(dg.v.AP.m)+")"; $("dv-PAPO").textContent=fmt(dg.v.PAPO.m);
+  $("d-grp-q").textContent=GROUPES[dg.grp].q;
+  $("d-ans").innerHTML=ks.map(x=>`<label class="opt" id="da-${x}"><input type="radio" name="dans" value="${x}"> <span>${NOMS[x]}</span></label>`).join("")+`<button class="main" id="d-ok">Valider</button>`;
+  $("d-fb").innerHTML=""; setCav("OD");
+}
+function setCav(c){ dg.cav=c; $("d-cav").querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.c===c)); }
+$("d-cav").addEventListener("click",e=>{ const b=e.target.closest("button"); if(b) setCav(b.dataset.c); });
+$("d-grp").addEventListener("change",e=>{ dg.grp=+e.target.value; dg.k=null; newCase(); });
+$("d-next").addEventListener("click",newCase);
+function chiffres(){ const p=dg.p, od=dg.v.OD.m, papo=dg.v.PAPO.m;
+  return `<p class="muted">Les chiffres de ce patient : PAPd − PAPO = <b>${f0(p.pad-papo)}</b> mmHg ; PAPO − OD = <b>${f0(papo-od)}</b> mmHg ; télédiastolique / systolique VD = <b>${fmt(p.rvd/p.rvs,2)}</b> ; OD / PAPO = <b>${fmt(od/papo,2)}</b>.</p>`; }
+$("d-ans").addEventListener("click",e=>{
+  if(e.target.id!=="d-ok" || dg.done) return;
+  const sel=document.querySelector('input[name="dans"]:checked'); if(!sel){ $("d-fb").innerHTML='<p class="fb ko">Choisissez un profil.</p>'; return; }
+  dg.done=true; const c=sel.value, k=dg.k, ok=c===k; dg.n++; if(ok) dg.ok++;
+  $("da-"+k).classList.add("good"); if(!ok) $("da-"+c).classList.add("bad");
+  let h;
+  if(ok) h=`<p class="fb ok">Exact : ${NOMS[k]}.</p><p>Ce qui le signait : ${SIG[k]}.</p>`;
+  else {
+    const expl = k==="west" ? WEST_KEY : c==="west" ? WEST_NOT : PAIRES[k+"|"+c] || `${NOMS[c]} donnerait ${SIG[c]}. Ici, on voit ${SIG[k]}.`;
+    h=`<p class="fb ko">Non. Réponse : ${NOMS[k]} (vous avez répondu : ${NOMS[c]}).</p><p><b>Votre erreur d'interprétation.</b> ${expl}</p>`;
+  }
+  h+=chiffres()+`<p class="note">${NOTES[k]}</p>`;
+  $("d-fb").innerHTML=h; $("d-score").textContent=`Score : ${dg.ok} / ${dg.n}`;
+});
+let dt0=null;
+function dframe(ts){
+  if(!$("v-diag").hidden && dg.p){
+    const t=ts/1000+100, W2=dcv.width, H2=dcv.height, m=dg.p.max||PROF[dg.k].max, y=v=>H2-12-(v/m)*(H2-30), pxs=(W2-36)/6;
+    drawGrid(dx,W2,H2,m,y);
+    dx.strokeStyle=dg.cav==="OD"?css("--ra"):css("--pa"); dx.lineWidth=2.2; dx.beginPath();
+    for(let x=36;x<W2;x++){ const v=pressP(dg.p,dg.cav,t-(W2-x)/pxs); x===36?dx.moveTo(x,y(v)):dx.lineTo(x,y(v)); }
+    dx.stroke();
+    $("d-ch").textContent=dg.cav+" · "+({OD:"oreillette droite",VD:"ventricule droit",AP:"artère pulmonaire",PAPO:"position bloquée"})[dg.cav];
+    const v=dg.v[dg.cav]; $("d-num").innerHTML = (dg.cav==="OD"||dg.cav==="PAPO") ? `${fmt(v.m)} <small>mmHg (moy.)</small>` : dg.cav==="VD" ? `${dg.p.rvs}/${dg.p.rvd} <small>(syst./télédiast.)</small>` : `${dg.p.pas}/${dg.p.pad} <small>(${fmt(v.m)})</small>`;
+  }
+  requestAnimationFrame(dframe);
+}
+newCase(); requestAnimationFrame(dframe);
+
+// ---------- onglets ----------
+document.querySelectorAll(".tab").forEach(t=>t.addEventListener("click",()=>{
+  document.querySelectorAll(".tab").forEach(x=>x.setAttribute("aria-selected",x===t));
+  ["montee","diag","papo","td","calc"].forEach(v=>$("v-"+v).hidden=v!==t.dataset.view);
+  if(t.dataset.view==="papo") drawPapo(); if(t.dataset.view==="td"){drawTD(); newTQ();}
+}));
+loadP(0); drawTD(); newTQ(); newPatient();
+})();
+</script>
+</body>
+</html>
